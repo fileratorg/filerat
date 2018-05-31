@@ -13,7 +13,7 @@ import (
 //	os.Exit(result)
 //}
 
-func criateClient(t *testing.T) Storage{
+func createClient(t *testing.T) Storage{
 	client, err := New()
 
 	if err != nil{
@@ -22,11 +22,11 @@ func criateClient(t *testing.T) Storage{
 	return client
 }
 func TestCanCreateClient(t *testing.T){
-	criateClient(t)
+	createClient(t)
 }
 
 func TestCanCreateBucket(t *testing.T){
-	client := criateClient(t)
+	client := createClient(t)
 	bucketName := "test"
 	if !client.MakeBucket(bucketName){
 		t.Error("Error creating bucket")
@@ -34,7 +34,7 @@ func TestCanCreateBucket(t *testing.T){
 }
 
 func TestCanPreSignPut(t *testing.T){
-	client := criateClient(t)
+	client := createClient(t)
 
 	bucketName := "test"
 	objectName := "test"
@@ -53,7 +53,7 @@ func TestCanPreSignPut(t *testing.T){
 }
 
 func TestCanPut(t *testing.T){
-	client := criateClient(t)
+	client := createClient(t)
 	bucketName := "test"
 	filePath, path_err := filepath.Abs("../../tmp/test.zip")
 	if path_err != nil{
@@ -67,7 +67,7 @@ func TestCanPut(t *testing.T){
 }
 
 func TestCanPreSignGet(t *testing.T){
-	client := criateClient(t)
+	client := createClient(t)
 	bucketName := "test"
 	objectName := "test"
 	if client.PreSignGet(bucketName, objectName) == nil {
