@@ -55,7 +55,7 @@ func TestCanPreSignPut(t *testing.T){
 func TestCanPut(t *testing.T){
 	client := createClient(t)
 	bucketName := "test"
-	filePath, path_err := filepath.Abs("../../tmp/test.zip")
+	filePath, path_err := filepath.Abs("../tmp/test.zip")
 	if path_err != nil{
 		t.Fatal("error geting file path")
 	}
