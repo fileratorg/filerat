@@ -1,4 +1,4 @@
-package neo4j
+package neo4j_driver
 
 import (
 	"testing"
@@ -17,7 +17,8 @@ func TestConnector(t *testing.T) {
 
 	t.Run("Verify neo4j connector path", func(t *testing.T) {
 		conn := new(Connector)
-		conn.Init(boltPath, port)
+		defer conn.Close()
+		conn.Open(boltPath, port)
 		testUri := fmt.Sprintf("%s:%d", boltPath, port)
 		assertCorrectFieldAssignment(t, testUri, conn.getFullPath())
 	})
