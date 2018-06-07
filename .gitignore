@@ -12,3 +12,5 @@
 *.out
 
 .idea/
+stub_*
+bin/
