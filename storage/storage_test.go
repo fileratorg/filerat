@@ -39,7 +39,7 @@ func TestCanPreSignPut(t *testing.T){
 	bucketName := "test"
 	objectName := "test"
 	if client.PreSignPut(bucketName, objectName) == nil {
-		t.Error("Error creating signaure for put")
+		t.Error("Error creating signature for put")
 	}
 
 	//t.Parallel() // can run in parallel
