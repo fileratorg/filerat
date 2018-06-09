@@ -7,7 +7,7 @@ services:
     image: golang:1.10.3
     command: go run ginserver/main.go
     ports:
-      - "8080:8080"
+      - "8000:8000"
     links:
       - neo4j
     depends_on:
