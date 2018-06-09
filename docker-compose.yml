@@ -7,12 +7,11 @@ services:
     image: golang:1.10.3
     command: go run ginserver/main.go
     ports:
-      - "8080"
+      - "8080:8080"
     links:
       - neo4j
     depends_on:
       - neo4j
-    restart: always
   neo4j:
     image: neo4j:3.4.0
     ports:
@@ -20,4 +19,3 @@ services:
       - "7687:7687"
     environment:
       NEO4J_AUTH: neo4j/admin
-    restart: always
