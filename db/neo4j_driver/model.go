@@ -6,6 +6,7 @@ import (
 )
 
 type Model struct {
+	Id			int64
 	UniqueId	uuid.UUID
 	CreatedAt	time.Time
 	UpdatedAt	time.Time

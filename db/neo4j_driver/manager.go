@@ -53,19 +53,22 @@ func (db *Connector)Delete(model interface{}, uniqueId uuid.UUID, soft bool) *Co
 	// TODO: find a way to get away without passing uniqueId
 	modelTypeName := getModelName(model)
 	query := ""
+	params := map[string]interface{}{
+		"UniqueId": uniqueId.String(),
+	}
 	if soft {
-		query = fmt.Sprintf("MATCH (n:%s { Id: {%s} } SET n.DeletedAt=%d", modelTypeName, uniqueId, time.Now().Unix())
+		query = fmt.Sprintf("MATCH (n:%s { UniqueId: {UniqueId} }) SET n.DeletedAt={DeletedAt}", modelTypeName)
+		params["DeletedAt"] = time.Now().Unix()
 	}else {
-		query = fmt.Sprintf("MATCH (n:%s { Id: {%s} } DETACH DELETE n", modelTypeName, uniqueId)
+		query = fmt.Sprintf("MATCH (n:%s { UniqueId: {UniqueId} }) DETACH DELETE n", modelTypeName)
 	}
 	stmt, err := db.Session.PrepareNeo(query)
 	defer stmt.Close()
 	if err != nil {
 		panic(err)
 	}
-
 	// Executing a statement just returns summary information
-	result, err := stmt.ExecNeo(nil)
+	result, err := stmt.ExecNeo(params)
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +101,6 @@ func (db *Connector)Get(model interface{}, uniqueId uuid.UUID) *Connector{
 	node := graph.Node{}
 	reflect.ValueOf(&node).Elem().Set(reflect.ValueOf(data[0]))
 	loadModel(model, node)
-
 	db.Error = err
 	return db
 }
@@ -107,13 +109,15 @@ func (db *Connector)Save(model interface{}) *Connector{
 	modelTypeName := getModelName(model)
 
 	query := fmt.Sprintf("MERGE (n:%s {", modelTypeName)
-	params := getModelFields(model)
+	params, uniqueId := getModelFields(model)
+
+	query += fmt.Sprintf("%s: \"%s\"}) SET ", "UniqueId", uniqueId.String())
 
 	for field_name, _ := range params{
-		query += fmt.Sprintf("%s: {%s},", field_name, field_name)
+		query += fmt.Sprintf(" n.%s = {%s},", field_name, field_name)
 	}
 
-	query = query[:len(query) - 1] + "})"
+	query = query[:len(query) - 1]
 	stmt, err := db.Session.PrepareNeo(query)
 	defer stmt.Close()
 	if err != nil {
@@ -136,8 +140,8 @@ func (db *Connector)Save(model interface{}) *Connector{
 
 
 //TODO: clean this up
-func getModelFields(model interface{}) map[string]interface {} {
-
+func getModelFields(model interface{}) (map[string]interface {}, uuid.UUID) {
+	var uniqueId uuid.UUID
 	s := reflect.ValueOf(model).Elem()
 	typeOfT := s.Type()
 	fields := make(map[string]interface {})
@@ -151,6 +155,13 @@ func getModelFields(model interface{}) map[string]interface {} {
 			for z := 0; z < sEmbedded.NumField(); z++ {
 				fEmbedded := sEmbedded.Field(z)
 				field_name := typeOfTEmbedded.Field(z).Name
+				if field_name == "UniqueId" {
+					reflect.ValueOf(&uniqueId).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
+					continue
+				}
+				if field_name == "Id" {
+					continue
+				}
 				//field_type := fEmbedded.Type()
 				switch fEmbedded.Interface().(type) {
 				case time.Time:
@@ -170,12 +181,17 @@ func getModelFields(model interface{}) map[string]interface {} {
 			fields[field_name] = field_value
 		}
 	}
-	return fields
+	return fields, uniqueId
 }
 
 func loadModel(model interface{}, node graph.Node) interface{} {
 	clone := reflect.ValueOf(model).Elem()
+	clone.FieldByName("Id").Set(reflect.ValueOf(node.NodeIdentity))
 	for field_name, field_value := range node.Properties {
+		if field_name == "Id" {
+			//TODO: maybe use struct field tags for this
+			continue
+		}
 		v := clone.FieldByName(field_name)
 		if v.IsValid() {
 			var tmpVal time.Time
