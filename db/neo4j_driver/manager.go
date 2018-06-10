@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"time"
 	"log"
+	"github.com/satori/go.uuid"
+	"strings"
+	"github.com/johnnadratowski/golang-neo4j-bolt-driver/structures/graph"
 )
 
 type DatabaseManager interface {
@@ -15,15 +18,17 @@ type DatabaseManager interface {
 type Connector struct {
 	BoltPath 	string
 	Port 		int
-	Session bolt.Conn
+	Session 	bolt.Conn
+	Error			error
 }
 
-func (conn *Connector) Open(path string, port int) (bolt.Conn, error) {
+func (conn *Connector) Open(path string, port int) *Connector {
 	conn.BoltPath = path
 	conn.Port = port
-	session, ex := start(conn.getFullPath())
+	session, err := start(conn.getFullPath())
 	conn.Session = session
-	return conn.Session, ex
+	conn.Error = err
+	return conn
 }
 func (conn *Connector) Close() {
 	conn.Session.Close()
@@ -44,9 +49,64 @@ func start(uri string) (bolt.Conn, error) {
 	return conn, err
 }
 
-func Save(conn bolt.Conn, labelName string, model interface{}) interface{}{
+func (db *Connector)Delete(model interface{}, uniqueId uuid.UUID, soft bool) *Connector {
+	// TODO: find a way to get away without passing uniqueId
+	modelTypeName := getModelName(model)
+	query := ""
+	if soft {
+		query = fmt.Sprintf("MATCH (n:%s { Id: {%s} } SET n.DeletedAt=%d", modelTypeName, uniqueId, time.Now().Unix())
+	}else {
+		query = fmt.Sprintf("MATCH (n:%s { Id: {%s} } DETACH DELETE n", modelTypeName, uniqueId)
+	}
+	stmt, err := db.Session.PrepareNeo(query)
+	defer stmt.Close()
+	if err != nil {
+		panic(err)
+	}
 
-	query := fmt.Sprintf("CREATE (n:%s {", labelName)
+	// Executing a statement just returns summary information
+	result, err := stmt.ExecNeo(nil)
+	if err != nil {
+		panic(err)
+	}
+	numResult, err := result.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("DELETED ROWS: %d\n", numResult) // CREATED ROWS: 1
+	db.Error = err
+
+	return db
+}
+
+func (db *Connector)Get(model interface{}, uniqueId uuid.UUID) *Connector{
+	modelTypeName := getModelName(model)
+
+	query := fmt.Sprintf("MATCH (n:%s { UniqueId: {UniqueId} }) RETURN n", modelTypeName)
+	params := map[string]interface{}{"UniqueId": uniqueId.String()}
+	stmt, err := db.Session.PrepareNeo(query)
+	defer stmt.Close()
+	if err != nil {
+		panic(err)
+	}
+	rows, err := stmt.QueryNeo(params)
+	if err != nil {
+		panic(err)
+	}
+	data, _, err := rows.NextNeo()
+	fmt.Printf("COLUMNS: %#v\n", rows.Metadata()["fields"].([]interface{})) // COLUMNS: n.foo,n.bar
+	node := graph.Node{}
+	reflect.ValueOf(&node).Elem().Set(reflect.ValueOf(data[0]))
+	loadModel(model, node)
+
+	db.Error = err
+	return db
+}
+
+func (db *Connector)Save(model interface{}) *Connector{
+	modelTypeName := getModelName(model)
+
+	query := fmt.Sprintf("MERGE (n:%s {", modelTypeName)
 	params := getModelFields(model)
 
 	for field_name, _ := range params{
@@ -54,7 +114,8 @@ func Save(conn bolt.Conn, labelName string, model interface{}) interface{}{
 	}
 
 	query = query[:len(query) - 1] + "})"
-	stmt, err := conn.PrepareNeo(query)
+	stmt, err := db.Session.PrepareNeo(query)
+	defer stmt.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -69,12 +130,10 @@ func Save(conn bolt.Conn, labelName string, model interface{}) interface{}{
 		panic(err)
 	}
 	log.Printf("CREATED ROWS: %d\n", numResult) // CREATED ROWS: 1
-
-	// Closing the statment will also close the rows
-	stmt.Close()
-
-	return model
+	db.Error = err
+	return db
 }
+
 
 //TODO: clean this up
 func getModelFields(model interface{}) map[string]interface {} {
@@ -87,22 +146,21 @@ func getModelFields(model interface{}) map[string]interface {} {
 		field_name := typeOfT.Field(i).Name
 		if field_name == "Model"{
 
-			sEmbeded := reflect.ValueOf(f.Interface()).Elem()
-			typeOfTEmbeded := sEmbeded.Type()
-			for z := 0; z < sEmbeded.NumField(); z++ {
-				fEmbeded := sEmbeded.Field(z)
-				field_name := typeOfTEmbeded.Field(z).Name
-				field_type := fEmbeded.Type()
-				log.Println(field_type)
-				switch ftype := fEmbeded.Interface().(type) {
+			sEmbedded := reflect.ValueOf(f.Interface()).Elem()
+			typeOfTEmbedded := sEmbedded.Type()
+			for z := 0; z < sEmbedded.NumField(); z++ {
+				fEmbedded := sEmbedded.Field(z)
+				field_name := typeOfTEmbedded.Field(z).Name
+				//field_type := fEmbedded.Type()
+				switch fEmbedded.Interface().(type) {
 				case time.Time:
-					log.Println(ftype)
-					var test time.Time
-					reflect.ValueOf(&test).Elem().Set(reflect.ValueOf(fEmbeded.Interface()))
-					fields[field_name] = test.Unix()
-					log.Println(test)
+					var tmpVal time.Time
+					reflect.ValueOf(&tmpVal).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
+					fields[field_name] = tmpVal.Unix()
+				case uuid.UUID:
+					fields[field_name] = fmt.Sprintf("%s", fEmbedded.Interface())
 				default:
-					fields[field_name] = fEmbeded.Interface()
+					fields[field_name] = fEmbedded.Interface()
 				}
 			}
 
@@ -113,4 +171,52 @@ func getModelFields(model interface{}) map[string]interface {} {
 		}
 	}
 	return fields
+}
+
+func loadModel(model interface{}, node graph.Node) interface{} {
+	clone := reflect.ValueOf(model).Elem()
+	for field_name, field_value := range node.Properties {
+		v := clone.FieldByName(field_name)
+		if v.IsValid() {
+			var tmpVal time.Time
+			switch v.Interface().(type) {
+			case time.Time:
+				if v.Interface() != nil{
+					var val int64
+					reflect.ValueOf(&val).Elem().Set(reflect.ValueOf(field_value))
+					tmpVal = time.Unix(val, 0)
+					v.Set(reflect.ValueOf(tmpVal).Convert(reflect.TypeOf(tmpVal)))
+				}
+			case uuid.UUID:
+				var tmpVal uuid.UUID
+				if v.Interface() != nil{
+					var val string
+					reflect.ValueOf(&val).Elem().Set(reflect.ValueOf(field_value))
+					tmpVal, _ = uuid.FromString(val)
+					v.Set(reflect.ValueOf(tmpVal))
+				}
+			default:
+				if v.Interface() != nil {
+					v = reflect.ValueOf(field_value)
+				}
+			}
+		}
+		clone.FieldByName(field_name).Set(v)
+	}
+	//reflect.ValueOf(&model).Set(reflect.ValueOf(clone))
+	model = &clone
+	return model
+}
+
+func indirect(reflectValue reflect.Value) reflect.Value {
+	for reflectValue.Kind() == reflect.Ptr {
+		reflectValue = reflectValue.Elem()
+	}
+	return reflectValue
+}
+
+func getModelName(model interface{}) string {
+	modelTypeName := reflect.TypeOf(model).String()
+	modelTypeName = modelTypeName[strings.LastIndex(modelTypeName, ".") + 1:]
+	return modelTypeName
 }
