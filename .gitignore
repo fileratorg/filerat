@@ -14,3 +14,4 @@
 .idea/
 stub_*
 bin/
+vendor/

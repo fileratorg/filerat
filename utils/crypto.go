@@ -1,7 +1,7 @@
 package utils
 
 import (
-		"log"
+	"log"
 	"golang.org/x/crypto/bcrypt"
 	)
 
