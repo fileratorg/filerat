@@ -4,7 +4,10 @@ import (
 	"testing"
 	"github.com/fileratorg/filerat/db/models"
 	"github.com/satori/go.uuid"
-)
+	"time"
+	"github.com/fileratorg/filerat/db/neo4j_driver"
+	"github.com/fileratorg/filerat/utils"
+	)
 
 var boltPath = "bolt://neo4j:admin@0.0.0.0"
 var port = 7687
@@ -20,8 +23,13 @@ func TestUserCreate(t *testing.T) {
 		}
 
 		user := models.AuthUser{Username:"test", Email:"Test@test.com", Password:"password"}
+		now := time.Now()
+		user.Model = new(neo4j_driver.Model)
+		user.Model.CreatedAt = now
+		user.Model.UpdatedAt = now
 		user.Model.UniqueId = uniqueId
-		conn.Save(&user)
+		user.Password = utils.GetPasswordHash(user.Password)
+		conn.SaveUser(&user)
 	})
 
 }
@@ -32,10 +40,10 @@ func TestUserGet(t *testing.T) {
 		conn := new(DbConnector)
 		db := conn.Open(boltPath, port)
 		if db.Error != nil {
-			t.Errorf("%s.", err)
+			t.Errorf("%s.", db.Error)
 		}
 
-		//user := conn.Get(uniqueId)
+		conn.GetUser(uniqueId)
 	})
 
 }
@@ -49,9 +57,12 @@ func TestUserUpdate(t *testing.T) {
 			t.Errorf("%s.", db.Error)
 		}
 
-		//user := conn.Get(uniqueId)
-		user := models.AuthUser{Username:"test2", Email:"Test2@test.com", Password:"password2"}
-		conn.Save(&user)
+		user := conn.GetUser(uniqueId)
+		user.Username = "changed"
+		conn.SaveUser(&user)
+		if user.Username != "changed" {
+			t.Errorf("username not changed")
+		}
 	})
 
 }
@@ -65,8 +76,8 @@ func TestUserSoftDelete(t *testing.T) {
 			t.Errorf("%s.", db.Error)
 		}
 
-		user := models.AuthUser{Username:"test2", Email:"Test2@test.com", Password:"password2"}
-		conn.Delete(&user, true)
+		user := conn.GetUser(uniqueId)
+		conn.DeleteUser(&user, true)
 	})
 
 }
@@ -80,8 +91,8 @@ func TestUserHardDelete(t *testing.T) {
 			t.Errorf("%s.", db.Error)
 		}
 
-		user := models.AuthUser{Username:"test2", Email:"Test2@test.com", Password:"password2"}
-		conn.Delete(&user, false)
+		user := conn.GetUser(uniqueId)
+		conn.DeleteUser(&user, false)
 	})
 
 }
