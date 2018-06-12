@@ -1,6 +1,7 @@
 package filerat
 
-// TODO: rename all the database variables
-var	BoltPath = "bolt://neo4j:admin@0.0.0.0"
+import "github.com/fileratorg/filerat/utils"
+
+var	BoltPath = utils.GetEnv("DB_URL", "bolt://neo4j:admin@0.0.0.0")
 var	Port = 7687
 var ServerPort = "8080"

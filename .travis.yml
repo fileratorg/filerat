@@ -1,5 +1,7 @@
 language: go
 
+services:
+  - neo4j
+
 go:
-  - "1.10.x"
   - master

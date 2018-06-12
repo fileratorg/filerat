@@ -3,7 +3,7 @@ package utils
 import (
 	"log"
 	"golang.org/x/crypto/bcrypt"
-)
+	)
 
 func GetPasswordHash(password string) string {
 	return hashAndSalt([]byte(password))
