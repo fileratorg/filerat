@@ -1,4 +1,4 @@
 package filerat
 
-var	BoltPath = "bolt://neo4j:admin@0.0.0.0"
+var	BoltPath = "bolt://neo4j:admin@localhost"
 var	Port = 7687
