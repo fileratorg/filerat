@@ -154,12 +154,14 @@ func getModelFields(model interface{}) (map[string]interface {}, uuid.UUID) {
 			typeOfTEmbedded := sEmbedded.Type()
 			for z := 0; z < sEmbedded.NumField(); z++ {
 				fEmbedded := sEmbedded.Field(z)
+				field_type := typeOfTEmbedded.Field(z).Tag.Get("type")
 				field_name := typeOfTEmbedded.Field(z).Name
-				if field_name == "UniqueId" {
+
+				if field_type == "unique_id" {
 					reflect.ValueOf(&uniqueId).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
 					continue
 				}
-				if field_name == "Id" {
+				if field_type == "id" {
 					continue
 				}
 				//field_type := fEmbedded.Type()

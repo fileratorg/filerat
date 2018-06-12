@@ -6,8 +6,8 @@ import (
 )
 
 type Model struct {
-	Id			int64
-	UniqueId	uuid.UUID
+	Id			int64 `type:"id"`
+	UniqueId	uuid.UUID `type:"unique_id"`
 	CreatedAt	time.Time
 	UpdatedAt	time.Time
 	DeletedAt	time.Time
