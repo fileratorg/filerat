@@ -1,4 +1,6 @@
 package filerat
 
-var	BoltPath = "bolt://neo4j:neo4j@localhost"
+import "github.com/fileratorg/filerat/utils"
+
+var	BoltPath = utils.GetEnv("DB_URL", "bolt://neo4j:admin@0.0.0.0")
 var	Port = 7687
