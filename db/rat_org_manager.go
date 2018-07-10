@@ -4,22 +4,13 @@ import (
 	"github.com/fileratorg/filerat/db/models"
 	"github.com/fileratorg/filerat"
 		"github.com/fileratorg/filerat/db/neo4j_driver"
-	"time"
-	"github.com/satori/go.uuid"
+		"github.com/satori/go.uuid"
 )
 
 func (conn *DbConnector) SaveRatOrg(obj *models.RatOrg) (*models.RatOrg){
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
-
-	now := time.Now()
-	if obj.Model == nil{
-		obj.Model = new(neo4j_driver.Model)
-		obj.Model.CreatedAt = now
-		obj.Model.UpdatedAt = now
-		var uniqueId, _ = uuid.NewV4()
-		obj.Model.UniqueId = uniqueId
-	}
+	obj.InitParent()
 	//if user.Model.UniqueId == uuid.Nil{
 	//	var uniqueId, _ = uuid.NewV4()
 	//	user.Model.UniqueId = uniqueId

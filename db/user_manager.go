@@ -4,46 +4,37 @@ import (
 	"github.com/fileratorg/filerat/db/models"
 	"github.com/fileratorg/filerat"
 		"github.com/fileratorg/filerat/db/neo4j_driver"
-	"time"
-	"github.com/satori/go.uuid"
+		"github.com/satori/go.uuid"
 )
 
-func (conn *DbConnector) SaveUser(user *models.AuthUser) (*models.AuthUser){
+func (conn *DbConnector) SaveUser(obj *models.AuthUser) (*models.AuthUser){
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
-
-	now := time.Now()
-	if user.Model == nil{
-		user.Model = new(neo4j_driver.Model)
-		user.Model.CreatedAt = now
-		user.Model.UpdatedAt = now
-		var uniqueId, _ = uuid.NewV4()
-		user.Model.UniqueId = uniqueId
-	}
+	obj.InitParent()
 	//if user.Model.UniqueId == uuid.Nil{
 	//	var uniqueId, _ = uuid.NewV4()
 	//	user.Model.UniqueId = uniqueId
 	//}
-	conn.Save(user)
-	return user
+	conn.Save(obj)
+	return obj
 }
 
 
 func (conn *DbConnector) GetUser(uniqueId uuid.UUID) (models.AuthUser){
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
-	user := models.AuthUser{}
-	user.Model = new(neo4j_driver.Model)
-	conn.Get(&user, uniqueId)
+	obj := models.AuthUser{}
+	obj.Model = new(neo4j_driver.Model)
+	conn.Get(&obj, uniqueId)
 
-	return user
+	return obj
 }
 
 
-func (conn *DbConnector) DeleteUser(user *models.AuthUser, soft bool) bool {
+func (conn *DbConnector) DeleteUser(obj *models.AuthUser, soft bool) bool {
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
 
-	conn.Delete(&user, user.UniqueId, soft)
+	conn.Delete(&obj, obj.UniqueId, soft)
 	return true
 }

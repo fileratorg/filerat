@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/fileratorg/filerat/db/neo4j_driver"
-	)
+		)
 
 type RatFile struct {
 	*neo4j_driver.Model
