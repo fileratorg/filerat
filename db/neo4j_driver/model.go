@@ -12,3 +12,15 @@ type Model struct {
 	UpdatedAt	time.Time
 	DeletedAt	time.Time
 }
+
+func (obj *Model) InitParent() *Model {
+	now := time.Now()
+	if obj == nil{
+		obj = new(Model)
+		obj.CreatedAt = now
+		obj.UpdatedAt = now
+		var uniqueId, _ = uuid.NewV4()
+		obj.UniqueId = uniqueId
+	}
+	return obj
+}

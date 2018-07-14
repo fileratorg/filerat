@@ -9,7 +9,7 @@ import (
 	"github.com/satori/go.uuid"
 	"strings"
 	"github.com/johnnadratowski/golang-neo4j-bolt-driver/structures/graph"
-)
+	)
 
 type DatabaseManager interface {
 	Save() Model
@@ -19,7 +19,13 @@ type Connector struct {
 	BoltPath 	string
 	Port 		int
 	Session 	bolt.Conn
-	Error			error
+	Error		error
+}
+
+type Relation struct {
+	FromNode	interface{}
+	ToNode		interface{}
+	RelName		string
 }
 
 func (conn *Connector) Open(path string, port int) *Connector {
@@ -106,10 +112,19 @@ func (db *Connector)Get(model interface{}, uniqueId uuid.UUID) *Connector{
 }
 
 func (db *Connector)Save(model interface{}) *Connector{
+
+	_, relations := db.SaveNode(model)
+	for _, relation := range relations {
+		db.SaveRelation(relation)
+	}
+	return db
+}
+
+func (db *Connector)SaveNode(model interface{}) (*Connector, []Relation){
 	modelTypeName := getModelName(model)
 
 	query := fmt.Sprintf("MERGE (n:%s {", modelTypeName)
-	params, uniqueId := getModelFields(model)
+	params, uniqueId, relations := getModelFields(model)
 
 	query += fmt.Sprintf("%s: \"%s\"}) SET ", "UniqueId", uniqueId.String())
 
@@ -135,12 +150,146 @@ func (db *Connector)Save(model interface{}) *Connector{
 	}
 	log.Printf("CREATED ROWS: %d\n", numResult) // CREATED ROWS: 1
 	db.Error = err
+
+	return db, relations
+}
+
+//func (db *Connector)SaveRelation(model_from interface{}, model_to interface{}, relation_name string) *Connector{
+func (db *Connector)SaveRelation(relation Relation) *Connector{
+	if relation.FromNode == nil || relation.ToNode == nil {
+		return db
+	}
+	modelSourceTypeName := getModelName(relation.FromNode)
+	modelDestinyTypeName := getModelName(relation.ToNode)
+
+	uniqueIdSource := getUniqueId(relation.FromNode)
+	uniqueIdDestiny := getUniqueId(relation.ToNode)
+	if uniqueIdSource == uuid.Nil || uniqueIdDestiny == uuid.Nil{
+		return db
+	}
+	params := map[string]interface{}{
+		"UniqueIdSource": uniqueIdSource.String(),
+		"UniqueIdDestiny": uniqueIdDestiny.String(),
+	}
+
+	query := fmt.Sprintf(
+		"MATCH (s:%s {UniqueId: {UniqueIdSource}}), (d:%s {UniqueId: {UniqueIdDestiny}})",
+		modelSourceTypeName, modelDestinyTypeName)
+	query += fmt.Sprintf(" MERGE (s)-[r:%s]->(d)", relation.RelName)
+
+	stmt, err := db.Session.PrepareNeo(query)
+	defer stmt.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	// Executing a statement just returns summary information
+	result, err := stmt.ExecNeo(params)
+	if err != nil {
+		panic(err)
+	}
+	numResult, err := result.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("CREATED RELATIONS: %d\n", numResult) // CREATED ROWS: 1
+	db.Error = err
 	return db
 }
 
 
 //TODO: clean this up
-func getModelFields(model interface{}) (map[string]interface {}, uuid.UUID) {
+func getModelFields(model interface{}) (map[string]interface {}, uuid.UUID, []Relation) {
+	var uniqueId uuid.UUID
+	s := reflect.ValueOf(model).Elem()
+	typeOfT := s.Type()
+	fields := make(map[string]interface {})
+	var relations []Relation
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		fieldName := typeOfT.Field(i).Name
+		if fieldName == "Model"{
+
+			sEmbedded := reflect.ValueOf(f.Interface()).Elem()
+			typeOfTEmbedded := sEmbedded.Type()
+			for z := 0; z < sEmbedded.NumField(); z++ {
+				fEmbedded := sEmbedded.Field(z)
+				field_type := typeOfTEmbedded.Field(z).Tag.Get("type")
+				fieldName := typeOfTEmbedded.Field(z).Name
+
+				if field_type == "unique_id" {
+					reflect.ValueOf(&uniqueId).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
+					continue
+				}
+				if field_type == "id" {
+					continue
+				}
+				//field_type := fEmbedded.Type()
+				switch fEmbedded.Interface().(type) {
+				case time.Time:
+					var tmpVal time.Time
+					reflect.ValueOf(&tmpVal).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
+					fields[fieldName] = tmpVal.Unix()
+				case uuid.UUID:
+					fields[fieldName] = fmt.Sprintf("%s", fEmbedded.Interface())
+				default:
+					fields[fieldName] = fEmbedded.Interface()
+				}
+			}
+
+		}else{
+			//field_type := f.Type()
+
+			fieldMetaType := typeOfT.Field(i).Tag.Get("cypher")
+			fieldMetaCypher := typeOfT.Field(i).Tag.Get("cypher")
+			fieldName := typeOfT.Field(i).Name
+			fieldValue := reflect.ValueOf(f.Interface())
+
+			if fieldMetaType == "unique_id" {
+				reflect.ValueOf(&uniqueId).Elem().Set(fieldValue)
+				continue
+			}
+			if fieldMetaType == "id" {
+				continue
+			}
+			if len(fieldMetaCypher) > 0 {
+				// model_from interface{}, model_to interface{}, relation_name string
+				var fromNode = model
+				var toNode = f.Interface()
+				if toNode == nil {
+					continue
+				}
+				relName := fieldMetaCypher[strings.Index(fieldMetaCypher, ":") + 1:]
+				relation := Relation{
+					FromNode:fromNode,
+					ToNode:toNode,
+					RelName:relName,
+				}
+				relations = append(relations, relation)
+				continue
+			}
+
+			//field_type := fEmbedded.Type()
+			switch f.Interface().(type) {
+			case time.Time:
+				var tmpVal time.Time
+				reflect.ValueOf(&tmpVal).Elem().Set(reflect.ValueOf(f.Interface()))
+				fields[fieldName] = tmpVal.Unix()
+			case uuid.UUID:
+				fields[fieldName] = fmt.Sprintf("%s", f.Interface())
+			default:
+				fields[fieldName] = f.Interface()
+			}
+
+
+			//field_value := f.Interface()
+			//fields[field_name] = field_value
+		}
+	}
+	return fields, uniqueId, relations
+}
+
+func getModelRelations(model interface{}) (map[string]interface {}, uuid.UUID) {
 	var uniqueId uuid.UUID
 	s := reflect.ValueOf(model).Elem()
 	typeOfT := s.Type()
@@ -178,12 +327,41 @@ func getModelFields(model interface{}) (map[string]interface {}, uuid.UUID) {
 			}
 
 		}else{
+			field_type := typeOfT.Field(i).Tag.Get("cypher")
+			log.Println(field_type)
 			//field_type := f.Type()
 			field_value := f.Interface()
 			fields[field_name] = field_value
 		}
 	}
 	return fields, uniqueId
+}
+
+func getUniqueId(model interface{}) uuid.UUID {
+	var uniqueId uuid.UUID
+	s := indirect(reflect.ValueOf(model))
+	if !s.CanAddr() {
+		return uuid.Nil
+	}
+	typeOfT := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		field_name := typeOfT.Field(i).Name
+		if field_name == "Model"{
+			sEmbedded := reflect.ValueOf(f.Interface()).Elem()
+			typeOfTEmbedded := sEmbedded.Type()
+			for z := 0; z < sEmbedded.NumField(); z++ {
+				fEmbedded := sEmbedded.Field(z)
+				field_type := typeOfTEmbedded.Field(z).Tag.Get("type")
+
+				if field_type == "unique_id" {
+					reflect.ValueOf(&uniqueId).Elem().Set(reflect.ValueOf(fEmbedded.Interface()))
+					return uniqueId
+				}
+			}
+		}
+	}
+	return uniqueId
 }
 
 func loadModel(model interface{}, node graph.Node) interface{} {

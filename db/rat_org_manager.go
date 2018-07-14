@@ -7,7 +7,7 @@ import (
 		"github.com/satori/go.uuid"
 )
 
-func (conn *DbConnector) SaveUser(obj *models.AuthUser) (*models.AuthUser){
+func (conn *DbConnector) SaveRatOrg(obj *models.RatOrg) (*models.RatOrg){
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
 	obj.InitParent()
@@ -20,10 +20,10 @@ func (conn *DbConnector) SaveUser(obj *models.AuthUser) (*models.AuthUser){
 }
 
 
-func (conn *DbConnector) GetUser(uniqueId uuid.UUID) (models.AuthUser){
+func (conn *DbConnector) GetRatOrg(uniqueId uuid.UUID) (models.RatOrg){
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
-	obj := models.AuthUser{}
+	obj := models.RatOrg{}
 	obj.Model = new(neo4j_driver.Model)
 	conn.Get(&obj, uniqueId)
 
@@ -31,7 +31,7 @@ func (conn *DbConnector) GetUser(uniqueId uuid.UUID) (models.AuthUser){
 }
 
 
-func (conn *DbConnector) DeleteUser(obj *models.AuthUser, soft bool) bool {
+func (conn *DbConnector) DeleteRatOrg(obj *models.RatOrg, soft bool) bool {
 	conn.Open(filerat.BoltPath, filerat.Port)
 	defer conn.Close()
 
