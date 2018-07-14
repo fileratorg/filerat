@@ -15,12 +15,11 @@ func TestConnector(t *testing.T) {
 		}
 	}
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test neo4j connector path", func(t *testing.T) {
 		conn := new(Connector)
 		defer conn.Close()
 		conn.Open(boltPath, port)
 		testUri := fmt.Sprintf("%s:%d", boltPath, port)
 		assertCorrectFieldAssignment(t, testUri, conn.getFullPath())
 	})
-
 }
