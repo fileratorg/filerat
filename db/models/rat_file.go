@@ -6,9 +6,8 @@ import (
 
 type RatFile struct {
 	*neo4j_driver.Model
-	Username	string
-	Email		string
-	Password	string
+	Name		string
+	Path		string
 	Owner		*AuthUser `cypher:"relation_name:BELONGS_TO"`
 	// RatFolderId uuid.UUID //`sql:"unique_index:uix_multipleindexes_user_name,uix_multipleindexes_user_email;index:idx_multipleindexes_user_other"`
 	RatFolder	*RatFolder `cypher:"relation_name:INSIDE_FOLDER"`
@@ -17,6 +16,7 @@ type RatFile struct {
 type RatFolder struct {
 	*neo4j_driver.Model
 	Name		string
+	Path		string
 	Owner		*AuthUser `cypher:"relation_name:BELONGS_TO"`
 	RatACL		RatACL `cypher:"relation_name:ACL"`
 	RatFolder	*RatFolder `cypher:"relation_name:INSIDE_FOLDER"`

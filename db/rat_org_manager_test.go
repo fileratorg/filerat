@@ -12,7 +12,7 @@ var uniqueIdOrg, _ = uuid.NewV4()
 
 func TestRatOrgCreate(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test rat org create", func(t *testing.T) {
 		conn := new(DbConnector)
 		now := time.Now()
 		org := models.RatOrg{Name:"Test"}
@@ -22,12 +22,11 @@ func TestRatOrgCreate(t *testing.T) {
 		org.Model.UniqueId = uniqueIdOrg
 		conn.SaveRatOrg(&org)
 	})
-
 }
 
 func TestRatOrgGet(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test rat org get", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		conn.GetRatOrg(uniqueIdOrg)
@@ -37,7 +36,7 @@ func TestRatOrgGet(t *testing.T) {
 
 func TestRatOrgUpdate(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test rat org update", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		org := conn.GetRatOrg(uniqueIdOrg)
@@ -51,7 +50,7 @@ func TestRatOrgUpdate(t *testing.T) {
 
 func TestRatOrgSoftDelete(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test rat org soft delete", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		org := conn.GetRatOrg(uniqueIdOrg)
@@ -61,7 +60,7 @@ func TestRatOrgSoftDelete(t *testing.T) {
 
 func TestRatOrgHardDelete(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test rat org hard delete", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		org := conn.GetRatOrg(uniqueIdOrg)

@@ -13,7 +13,7 @@ var uniqueId, _ = uuid.NewV4()
 
 func TestUserCreate(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user create", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		user := models.AuthUser{Username:"test", Email:"Test@test.com", Password:"password"}
@@ -28,10 +28,9 @@ func TestUserCreate(t *testing.T) {
 
 }
 
-
 func TestUserGet(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user get", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		conn.GetUser(uniqueId)
@@ -41,7 +40,7 @@ func TestUserGet(t *testing.T) {
 
 func TestUserUpdate(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user update", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		user := conn.GetUser(uniqueId)
@@ -56,7 +55,7 @@ func TestUserUpdate(t *testing.T) {
 
 func TestUserSoftDelete(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user soft delete", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		user := conn.GetUser(uniqueId)
@@ -67,7 +66,7 @@ func TestUserSoftDelete(t *testing.T) {
 
 func TestUserHardDelete(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user hard delete", func(t *testing.T) {
 		conn := new(DbConnector)
 
 		user := conn.GetUser(uniqueId)
@@ -79,7 +78,7 @@ func TestUserHardDelete(t *testing.T) {
 
 func TestUserCreateWithOrg(t *testing.T) {
 
-	t.Run("Verify neo4j connector path", func(t *testing.T) {
+	t.Run("Test user create with org", func(t *testing.T) {
 		conn := new(DbConnector)
 		now := time.Now()
 
